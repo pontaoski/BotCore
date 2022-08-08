@@ -172,6 +172,12 @@ function lookStraightSlightlyDown() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, SLIGHTLY_DOWN_PITCH)
 }
 
+JsMacros.on("RecvMessage" as const, JavaWrapper.methodToJava((hi: Events.RecvMessage): any => {
+    if (hi.text.getString().includes("You sense a")) {
+        finish()
+    }
+}))
+
 JsMacros.on("HeldItemChange" as const, JavaWrapper.methodToJava((hi: Events.HeldItemChange): any => {
     const inventory = Player.openInventory()
     const hand = inventory.getSlot(inventory.getMap()["hotbar"][inventory.getSelectedHotbarSlotIndex()])
