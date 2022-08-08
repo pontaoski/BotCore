@@ -1,70 +1,89 @@
 import BaseEvent = Events.BaseEvent;
 
-function finish() {
-    Chat.log("Stopped the Miner!" as any)
-    stop()
+function pos() {
+    return Player.getPlayer().getPos()
+}
+
+function eventPromise<T extends BaseEvent>(eventName: string): Promise<T> {
+    return new Promise(resolve => {
+        JsMacros.once(eventName, JavaWrapper.methodToJava((event: T): any => {
+            resolve(event)
+        }))
+    })
+}
+
+async function eventUntil<T extends BaseEvent>(eventName: string, predicate: (event: T) => boolean): Promise<void> {
+    while (true) {
+        const event = await eventPromise<T>(eventName)
+        if (predicate(event)) {
+            return
+        }
+    }
+}
+
+function waitTick(): Promise<void> {
+    return new Promise((resolve) => {
+        JsMacros.once("Tick", JavaWrapper.methodToJava((ev: BaseEvent): any => {
+            resolve()
+        }))
+    })
+}
+
+async function waitTicks(count: number): Promise<number> {
+    for (let i = 0; i < count; i++) {
+        await waitTick()
+    }
+    return count
+}
+
+async function spawn(callback: () => Promise<void>): Promise<void> {
+    await callback()
+}
+
+async function doUntilObstructed(callback: () => void): Promise<void> {
+    let {x: lastX, y: lastY, z: lastZ} = pos()
+
+    do {
+        lastX = pos().x, lastY = pos().y, lastZ = pos().z
+        callback()
+        await waitTicks(2)
+    } while (lastX != pos().x || lastY != pos().y || lastZ != pos().z)
+}
+
+async function pressFor(key: string, ticks: number): Promise<void> {
+    KeyBind.keyBind(key, true)
+    await waitTicks(ticks)
+    KeyBind.keyBind(key, false)
+}
+
+async function blockBreakPromise(): Promise<void> {
+    await eventUntil<Events.Sound>("Sound", ev => {
+        return ev.sound.startsWith("minecraft:block.") && ev.sound.endsWith(".break")
+    })
+}
+
+async function walkForwardUntilObstructed(sneak: boolean = true): Promise<void> {
+    snapToCardinal()
+    await doUntilObstructed(() => {
+        KeyBind.keyBind("key.sneak", sneak)
+        KeyBind.keyBind("key.forward", true)
+    })
+    KeyBind.keyBind("key.forward", false)
+    if (sneak) {
+        await pressFor("key.back", 1)
+        KeyBind.keyBind("key.sneak", false)
+    }
+}
+
+async function tryIt() {
+    await walkForwardUntilObstructed(true)
     context.getCtx().closeContext()
 }
 
-function start() {
-    KeyBind.keyBind("key.forward", true)
-    KeyBind.keyBind("key.attack", true)
-    KeyBind.keyBind("key.sneak", true)
-}
-
-function stop() {
-    KeyBind.keyBind("key.forward", false)
-    KeyBind.keyBind("key.attack", false)
-    KeyBind.keyBind("key.sneak", false)
-}
-
-function wrapAngle(angle) {
-    if (angle < 0) {
-        return 360 + angle
-    } else if (angle > 360) {
-        return angle - 360
-    } else {
-        return angle
-    }
-}
-
-function isAngleBetween(target: number, angle1: number, angle2: number): boolean {
-    const rAngle = ((angle2 - angle1) % 360 + 360) % 360;
-    if (rAngle >= 180)
-        [angle1, angle2] = [angle2, angle1]
-
-    if (angle1 <= angle2) {
-        return target >= angle1 && target <= angle2
-    } else {
-        return target >= angle1 || target <= angle2
-    }
-}
-
-function inAngleRange(val: number, angle: number): boolean {
-    if (val == angle) {
-        return true
-    }
-    return isAngleBetween(val, wrapAngle(angle-45), wrapAngle(angle+45))
-}
-
-enum Cardinal {
-    North,
-    East,
-    South,
-    West,
-}
-
-function offset(x: number, z: number, by: number, direction: Cardinal): [number, number] {
-    switch (direction) {
-    case Cardinal.North:
-        return [x, z - by]
-    case Cardinal.East:
-        return [x + by, z]
-    case Cardinal.South:
-        return [x, z + by]
-    case Cardinal.West:
-        return [x - by, z]
-    }
+function snapToCardinal() {
+    const yaw = cardinalToAngle(playerCardinal()) - 180
+    const pitch = Player.getPlayer().getPitch()
+    Player.getPlayer().lookAt(yaw, pitch)
 }
 
 function cardinalToAngle(c: Cardinal): number {
@@ -93,10 +112,58 @@ function playerCardinal(): Cardinal {
     }
 }
 
+function finish() {
+    KeyBind.keyBind("key.forward", false)
+    KeyBind.keyBind("key.sneak", false)
+    KeyBind.keyBind("key.attack", false)
+
+    context.getCtx().closeContext()
+}
+
+JsMacros.on("Key" as const, JavaWrapper.methodToJava((hi: Events.Key): any => {
+    if (hi.key == "key.keyboard.x") {
+        finish()
+    }
+}))
+
+enum Cardinal {
+    North,
+    East,
+    South,
+    West,
+}
+
+function inAngleRange(val: number, angle: number): boolean {
+    if (val == angle) {
+        return true
+    }
+    return isAngleBetween(val, wrapAngle(angle-45), wrapAngle(angle+45))
+}
+
+function wrapAngle(angle) {
+    if (angle < 0) {
+        return 360 + angle
+    } else if (angle > 360) {
+        return angle - 360
+    } else {
+        return angle
+    }
+}
+
+function isAngleBetween(target: number, angle1: number, angle2: number): boolean {
+    const rAngle = ((angle2 - angle1) % 360 + 360) % 360;
+    if (rAngle >= 180)
+        [angle1, angle2] = [angle2, angle1]
+
+    if (angle1 <= angle2) {
+        return target >= angle1 && target <= angle2
+    } else {
+        return target >= angle1 || target <= angle2
+    }
+}
+
 const FORWARD_PITCH = 0
 const SLIGHTLY_DOWN_PITCH = 35
-
-let pickedUpTop = true
 
 function lookStraight() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, FORWARD_PITCH)
@@ -105,58 +172,55 @@ function lookStraightSlightlyDown() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, SLIGHTLY_DOWN_PITCH)
 }
 
-// JsMacros.on("PlayerPositionChanged" as const, JavaWrapper.methodToJava((): any => {
-//     lookStraight()
-// }))
+JsMacros.on("HeldItemChange" as const, JavaWrapper.methodToJava((hi: Events.HeldItemChange): any => {
+    const inventory = Player.openInventory()
+    const hand = inventory.getSlot(inventory.getMap()["hotbar"][inventory.getSelectedHotbarSlotIndex()])
+    if (hand.getItemID().includes("pickaxe")) {
+        return
+    }
 
-JsMacros.on("Key" as const, JavaWrapper.methodToJava((hi: Events.Key): any => {
-    if (hi.key == "key.keyboard.x") {
+    let ok = false
+    for (let i = 0; i < inventory.getTotalSlots(); i++) {
+        if (inventory.getSlot(i).getItemID().includes("pickaxe")) {
+            inventory.swapHotbar(i, inventory.getSelectedHotbarSlotIndex())
+            ok = true
+            break
+        }
+    }
+    inventory.close()
+    if (!ok) {
+        Chat.log("No more pickaxes! :/" as any)
         finish()
     }
 }))
 
-
-JsMacros.on("Damage" as const, JavaWrapper.methodToJava((hi: Events.Damage): any => {
-    finish()
-}))
-
-let prevItem = null
-
-JsMacros.on("HeldItemChange" as const, JavaWrapper.methodToJava((hi: Events.HeldItemChange): any => {
-    if (hi.item.getItemID() == "minecraft:air") {
-        const inventory = Player.openInventory()
-        let ok = false
-        for (let i = 0; i < inventory.getTotalSlots(); i++) {
-            if (inventory.getSlot(i).getItemID().includes("pickaxe")) {
-                inventory.swapHotbar(i, inventory.getSelectedHotbarSlotIndex())
-                ok = true
-                break
-            }
-        }
-        inventory.close()
-        if (!ok) {
-            Chat.log("No more pickaxes! :/" as any)
+spawn(async () => {
+    while (true) {
+        const brokenPromise = blockBreakPromise()
+        const tickPromise = waitTicks(20 * 5)
+        const result = await Promise.race([brokenPromise, tickPromise])
+        // we timed out
+        if (typeof result == "number") {
             finish()
-        } else {
-            start()
-        }
-    } else if (
-        prevItem == null ||
-        (hi.item.getItemID().includes("pickaxe") &&
-        hi.item.getItemID() == prevItem.getItemID() &&
-        hi.item.getDamage() > prevItem.getDamage())
-    ) {
-        if (pickedUpTop) {
-            lookStraightSlightlyDown()
-            pickedUpTop = false
-        } else {
-            lookStraight()
-            pickedUpTop = true
         }
     }
-    prevItem = hi.item
-}))
+})
 
-start()
+spawn(async () => {
+    while (true) {
+        lookStraight()
+        await walkForwardUntilObstructed(true)
 
-/* */
+        // break top block
+        lookStraight()
+        KeyBind.keyBind("key.attack", true)
+        await blockBreakPromise()
+        KeyBind.keyBind("key.attack", false)
+        
+        // break bottom block
+        lookStraightSlightlyDown()
+        KeyBind.keyBind("key.attack", true)
+        await blockBreakPromise()
+        KeyBind.keyBind("key.attack", false)
+    }
+})
