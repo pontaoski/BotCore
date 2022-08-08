@@ -209,11 +209,10 @@ spawn(async () => {
 spawn(async () => {
     while (true) {
         lookStraight()
+        KeyBind.keyBind("key.attack", true)
         await walkForwardUntilObstructed(true)
 
         // break top block
-        lookStraight()
-        KeyBind.keyBind("key.attack", true)
         await blockBreakPromise()
         KeyBind.keyBind("key.attack", false)
         
