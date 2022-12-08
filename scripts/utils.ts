@@ -101,7 +101,7 @@ export async function attackUntilBroken(): Promise<void> {
 }
 
 export async function attackUntilBrokenTimeout(): Promise<boolean> {
-    const brokenPromise = blockBreakPromise()
+    const brokenPromise = attackUntilBroken()
     const tickPromise = waitTicks(20 * 5)
     const result = await Promise.race([
         brokenPromise,
