@@ -217,3 +217,41 @@ export function launchExitGuard(callback: () => void): void {
         }
     }))
 }
+
+export async function ensureFed(): Promise<boolean> {
+    const MinimumFood = 12
+    const FoodItems = [
+        "minecraft:apple",
+        "minecraft:mushroom_stew",
+        "minecraft:bread",
+        "minecraft:cooked_porkchop",
+        "minecraft:cooked_cod",
+        "minecraft:cooked_salmon",
+        "minecraft:cookie",
+        "minecraft:melon_slice",
+        "minecraft:cooked_beef",
+        "minecraft:cooked_chicken",
+        "minecraft:carrot",
+        "minecraft:baked_potato",
+        "minecraft:pumpkin_pie",
+        "minecraft:cooked_rabbit",
+        "minecraft:rabbit_stew",
+        "minecraft:cooked_mutton",
+        "minecraft:beetroot_soup",
+        "minecraft:sweet_berries",
+    ]
+
+    if (Player.getPlayer().getFoodLevel() >= MinimumFood) {
+        return true
+    }
+    suspendGuard()
+    for (const food of FoodItems) {
+        while (Player.getPlayer().getFoodLevel() < MinimumFood && holdItem(item => item.getItemID() == food)) {
+            KeyBind.keyBind("key.use", true)
+            await waitTicks(5)
+        }
+        KeyBind.keyBind("key.use", false)
+    }
+    stopSuspendGuard()
+    return Player.getPlayer().getFoodLevel() < MinimumFood
+}
