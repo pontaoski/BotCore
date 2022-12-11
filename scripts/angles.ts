@@ -37,6 +37,19 @@ export function cardinalRight(from: Cardinal): Cardinal {
     }
 }
 
+export function cardinalLeft(from: Cardinal): Cardinal {
+    switch (from) {
+    case Cardinal.North:
+        return Cardinal.West
+    case Cardinal.West:
+        return Cardinal.South
+    case Cardinal.South:
+        return Cardinal.East
+    case Cardinal.East:
+        return Cardinal.North
+    }
+}
+
 export function playerCardinal(): Cardinal {
     const ang = Player.getPlayer().getYaw()+180
     if (inAngleRange(ang, 0)) {
@@ -89,11 +102,17 @@ export function lookStraight() {
 export function turnRight() {
     Player.getPlayer().lookAt(cardinalToAngle(cardinalRight(playerCardinal())) - 180, Player.getPlayer().getPitch())
 }
+export function turnLeft() {
+    Player.getPlayer().lookAt(cardinalToAngle(cardinalLeft(playerCardinal())) - 180, Player.getPlayer().getPitch())
+}
 export function lookStraightSlightlyUp() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, SLIGHTLY_UP_PITCH)
 }
 export function lookStraightUp() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, -180)
+}
+export function lookStraightDown() {
+    Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, 180)
 }
 export function lookStraightSlightlyDown() {
     Player.getPlayer().lookAt(cardinalToAngle(playerCardinal()) - 180, SLIGHTLY_DOWN_PITCH)

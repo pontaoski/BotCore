@@ -14,7 +14,7 @@ Utils.launchVeinGuard(() => finish())
 Utils.launchPickaxeGuard(() => finish())
 
 async function breakBlock(): Promise<void> {
-    if (await Utils.attackUntilBrokenTimeout()) {
+    if (typeof await Utils.attackUntilBrokenTimeout() == 'number') {
         finish()
     }
 }
