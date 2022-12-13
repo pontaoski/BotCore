@@ -1,6 +1,23 @@
 import { snapToCardinal } from "./angles";
 import BaseEvent = Events.BaseEvent;
 
+export class CancellationToken {
+    cancelled: boolean
+
+    constructor() {
+        this.cancelled = false
+    }
+    throwIfCancelled() {
+        throw new Error("Cancelled")
+    }
+    isCancelled(): boolean {
+        return this.cancelled
+    }
+    cancel() {
+        this.cancelled = true
+    }
+}
+
 export function eventPromise<T extends BaseEvent>(eventName: string): Promise<T> {
     return new Promise(resolve => {
         JsMacros.once(eventName, JavaWrapper.methodToJava((event: T): any => {
@@ -46,10 +63,13 @@ export async function spawn(callback: () => Promise<void>): Promise<void> {
     await callback()
 }
 
-export async function blockBreakPromise(): Promise<string> {
+export async function blockBreakPromise(token?: CancellationToken): Promise<string> {
     let event = await eventUntil<Events.Sound>("Sound", ev => {
         if (!(ev.sound.startsWith("minecraft:block.") && ev.sound.endsWith(".break"))) {
             return false
+        }
+        if (token?.isCancelled()) {
+            return true
         }
         const pos = ev.position
         const ppos = Player.getPlayer().getPos()
@@ -119,20 +139,23 @@ export async function walkForwardFor(blocks: number): Promise<void> {
     KeyBind.keyBind("key.sneak", false)
 }
 
-export async function attackUntilBroken(): Promise<string> {
+export async function attackUntilBroken(token?: CancellationToken): Promise<string> {
     KeyBind.keyBind("key.attack", true)
-    let result = await blockBreakPromise()
+    let result = await blockBreakPromise(token)
+    if (token?.isCancelled()) return ''
     KeyBind.keyBind("key.attack", false)
     return result
 }
 
 export async function attackUntilBrokenTimeout(timeout: number = 5): Promise<number | string> {
-    const brokenPromise = attackUntilBroken()
+    const cancellation = new CancellationToken()
+    const brokenPromise = attackUntilBroken(cancellation)
     const tickPromise = waitTicks(20 * timeout)
     const result = await Promise.race([
         brokenPromise,
         tickPromise,
     ])
+    cancellation.cancel()
     return result
 }
 
@@ -156,15 +179,30 @@ export function holdItem(callback: (item: _javatypes.xyz.wagyourtail.jsmacros.cl
     return ok
 }
 
+export function isEnchanted(item: _javatypes.xyz.wagyourtail.jsmacros.client.api.helpers.ItemStackHelper): boolean {
+    if (!item.getNBT()?.asCompoundHelper().has(`Enchantments`))
+        return false
+
+    return item.getNBT()?.asCompoundHelper().get(`Enchantments`).asListHelper().length() > 0
+}
+
+export function shouldUse(item: _javatypes.xyz.wagyourtail.jsmacros.client.api.helpers.ItemStackHelper): boolean {
+    const pricey = item.getItemID().includes(`netherite`) || isEnchanted(item)
+    if (pricey && (item.getMaxDamage() - item.getDamage()) < 10)
+        return false
+
+    return true
+}
+
 export function holdPickaxe(): boolean {
     return holdItem((item) => {
-        return item.getItemID().includes("pickaxe") && (item.getMaxDamage() - item.getDamage()) > 10
+        return item.getItemID().includes("pickaxe") && shouldUse(item)
     })
 }
 
 export function holdAxe(): boolean {
     return holdItem((item) => {
-        return item.getItemID().includes("_axe") && (item.getMaxDamage() - item.getDamage()) > 10;
+        return item.getItemID().includes("_axe") && shouldUse(item)
     });
 }
 
