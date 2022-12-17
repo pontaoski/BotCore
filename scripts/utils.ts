@@ -63,23 +63,36 @@ export async function spawn(callback: () => Promise<void>): Promise<void> {
     await callback()
 }
 
-export async function blockBreakPromise(token?: CancellationToken): Promise<string> {
-    let event = await eventUntil<Events.Sound>("Sound", ev => {
-        if (!(ev.sound.startsWith("minecraft:block.") && ev.sound.endsWith(".break"))) {
-            return false
-        }
+const cim = Client.getMinecraft().field_1761
+const CimClass = Reflection.getClass("net.minecraft.class_636")
+const CimField1 = (CimClass as any).getDeclaredField("field_3714") // cbp
+const CimField1_5 = (CimClass as any).getDeclaredField("field_3716") // cd
+const CimField2 = (CimClass as any).getDeclaredField("field_3717") // bb
+CimField1.setAccessible(true)
+CimField1_5.setAccessible(true)
+CimField2.setAccessible(true)
+
+function scrongle(a: any): string {
+    return `${a.method_10263()} ${a.method_10264()} ${a.method_10260()}`
+}
+
+export const BlockBreak: unique symbol = Symbol.for("BlockBreak")
+
+export async function blockBreakPromise(token?: CancellationToken): Promise<typeof BlockBreak> {
+    let past: number
+    let current: number = CimField1.get(cim) as number
+    do {
         if (token?.isCancelled()) {
-            return true
+            return BlockBreak
         }
-        const pos = ev.position
-        const ppos = Player.getPlayer().getPos()
-        const dx = pos.getX() - ppos.getX()
-        const dy = pos.getY() - ppos.getY()
-        const dz = pos.getZ() - ppos.getZ()
-        const d = Math.sqrt(dx**2 + dy**2 + dz**2)
-        return d < 5
-    })
-    return event.sound.slice("minecraft:block.".length, -".break".length)
+
+        past = current
+        current = CimField1.get(cim) as number
+        await waitTick()
+        // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim)} != 5` as any)
+    } while (CimField2.get(cim) && CimField1_5.get(cim) != 5)
+    CimField1_5.set(cim, 0)
+    return BlockBreak
 }
 
 export function pos(): _javatypes.xyz.wagyourtail.jsmacros.client.api.sharedclasses.PositionCommon$Pos3D {
@@ -139,15 +152,15 @@ export async function walkForwardFor(blocks: number): Promise<void> {
     KeyBind.keyBind("key.sneak", false)
 }
 
-export async function attackUntilBroken(token?: CancellationToken): Promise<string> {
+export async function attackUntilBroken(token?: CancellationToken): Promise<typeof BlockBreak> {
     KeyBind.keyBind("key.attack", true)
     let result = await blockBreakPromise(token)
-    if (token?.isCancelled()) return ''
+    if (token?.isCancelled()) return BlockBreak
     KeyBind.keyBind("key.attack", false)
-    return result
+    return BlockBreak
 }
 
-export async function attackUntilBrokenTimeout(timeout: number = 5): Promise<number | string> {
+export async function attackUntilBrokenTimeout(timeout: number = 5): Promise<number | typeof BlockBreak> {
     const cancellation = new CancellationToken()
     const brokenPromise = attackUntilBroken(cancellation)
     const tickPromise = waitTicks(20 * timeout)
@@ -157,6 +170,18 @@ export async function attackUntilBrokenTimeout(timeout: number = 5): Promise<num
     ])
     cancellation.cancel()
     return result
+}
+
+export function countItems(callback: (item: _javatypes.xyz.wagyourtail.jsmacros.client.api.helpers.ItemStackHelper) => boolean): number {
+    const inventory = Player.openInventory()
+    let count = 0
+    for (let i = 0; i < inventory.getTotalSlots(); i++) {
+        const slot = inventory.getSlot(i)
+        if (callback(slot)) {
+            count += slot.getCount()
+        }
+    }
+    return count
 }
 
 export function holdItem(callback: (item: _javatypes.xyz.wagyourtail.jsmacros.client.api.helpers.ItemStackHelper) => boolean): boolean {

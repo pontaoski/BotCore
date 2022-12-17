@@ -10,7 +10,7 @@ function finish(): never {
     while (true) {}
 }
 
-async function breakBlock(): Promise<string> {
+async function breakBlock(): Promise<typeof Utils.BlockBreak> {
     let result = await Utils.attackUntilBrokenTimeout(3)
     if (typeof result == 'number') {
         KeyBind.keyBind("key.attack", false)
@@ -27,13 +27,17 @@ Utils.spawn(async () => {
     let leftRow = true
     try {
         while (true) {
-            let kind: string
             try {
+                let past: number
+                let current: number = Utils.countItems(x => x.getItemID().includes("log"))
                 do {
                     await Utils.walkForwardUntilObstructed(false)
                     lookStraight()
-                    kind = await breakBlock()
-                } while (kind == "grass")
+                    await breakBlock()
+                    past = current
+                    await Utils.waitTick()
+                    current = Utils.countItems(x => x.getItemID().includes("log"))
+                } while (past == current)
             } catch (error) {
                 if (leftRow) {
                     turnLeft()
@@ -47,17 +51,26 @@ Utils.spawn(async () => {
                 leftRow = !leftRow
                 continue
             }
-    
+
             lookStraightSlightlyDown()
             await breakBlock()
-    
+
             await Utils.walkForwardFor(1)
             lookStraightUp()
     
             try {
+                let past: number
+                let current: number = Utils.countItems(x => x.getItemID().includes("log"))
+                let lastPickup = Time.time()
                 do {
-                    kind = await breakBlock()
-                } while (kind != "grass")
+                    await breakBlock()
+                    past = current
+                    current = Utils.countItems(x => x.getItemID().includes("log"))
+                    if (past != current) {
+                        lastPickup = Time.time()
+                    }
+                    await Utils.waitTick()
+                } while ((Time.time() - lastPickup) < 1000)
             } catch (error) { }
 
             Utils.suspendGuard()
