@@ -79,6 +79,12 @@ function scrongle(a: any): string {
 export const BlockBreak: unique symbol = Symbol.for("BlockBreak")
 
 export async function blockBreakPromise(token?: CancellationToken): Promise<typeof BlockBreak> {
+    do {
+        KeyBind.keyBind("key.attack", true)
+        await waitTick()
+    } while (!CimField2.get(cim))
+    // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim) != 5}` as any)
+
     let past: number
     let current: number = CimField1.get(cim) as number
     do {
@@ -91,7 +97,8 @@ export async function blockBreakPromise(token?: CancellationToken): Promise<type
         await waitTick()
         // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim)} != 5` as any)
     } while (CimField2.get(cim) && CimField1_5.get(cim) != 5)
-    CimField1_5.set(cim, 0)
+    // await waitTick()
+//    CimField1_5.set(cim, 0)
     return BlockBreak
 }
 
@@ -225,6 +232,12 @@ export function holdPickaxe(): boolean {
     })
 }
 
+export function holdShovel(): boolean {
+    return holdItem((item) => {
+        return item.getItemID().includes("_shovel") && shouldUse(item)
+    });
+}
+
 export function holdAxe(): boolean {
     return holdItem((item) => {
         return item.getItemID().includes("_axe") && shouldUse(item)
@@ -248,6 +261,18 @@ export function launchPickaxeGuard(callback: () => void): void {
         let ok = holdPickaxe()
         if (!ok) {
             Chat.log("No more pickaxes! :/" as any)
+            callback()
+        }
+    }))
+}
+
+export function launchShovelGuard(callback: () => void): void {
+    JsMacros.on("HeldItemChange" as const, JavaWrapper.methodToJava((hi: Events.HeldItemChange): any => {
+        if (_suspendGuards) return
+
+        let ok = holdShovel()
+        if (!ok) {
+            Chat.log("No more shovels! :/" as any)
             callback()
         }
     }))
