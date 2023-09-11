@@ -7,6 +7,33 @@ async function breakBlock(failure: () => void): Promise<void> {
     }
 }
 
+export async function mine1x5(failure: () => void) {
+	while (true) {
+		lookStraight()
+
+		await Promise.all([
+            Utils.walkForwardUntilObstructed(false),
+            breakBlock(failure),
+		])
+
+        // break bottom block
+        lookStraightSlightlyDown()
+        await breakBlock(failure)
+
+        Utils.walkForwardUntilObstructed(false)
+
+        // break top three blocks
+        lookStraightUp()
+        await breakBlock(failure)
+
+        lookStraightUp()
+        await breakBlock(failure)
+
+        lookStraightUp()
+        await breakBlock(failure)
+	}
+}
+
 export async function mine3x3(failure: () => void) {
     while (true) {
         lookStraight()

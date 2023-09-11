@@ -1,4 +1,4 @@
-import { mine3x3, mine3x4, mine5x5 } from "./mining_bots"
+import { mine1x5, mine3x3, mine3x4, mine5x5 } from "./mining_bots"
 import * as Utils from "./utils"
 
 type IScreen = _javatypes.xyz.wagyourtail.jsmacros.client.api.sharedinterfaces.IScreen
@@ -14,6 +14,9 @@ function makeScreen() {
         }))
         screen.addButton(50, 110, 100, 20, 1, "5x5 Bot", JavaWrapper.methodToJava((): any => {
             startWith(mine5x5)
+        }))
+        screen.addButton(50, 140, 100, 20, 1, "1x5 Bot", JavaWrapper.methodToJava((): any => {
+            startWith(mine1x5)
         }))
     }
 

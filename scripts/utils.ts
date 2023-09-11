@@ -79,28 +79,46 @@ function scrongle(a: any): string {
 export const BlockBreak: unique symbol = Symbol.for("BlockBreak")
 
 export async function blockBreakPromise(token?: CancellationToken): Promise<typeof BlockBreak> {
-    do {
+    KeyBind.keyBind("key.attack", true)
+    let event = await eventUntil<Events.Sound>("Sound", ev => {
         KeyBind.keyBind("key.attack", true)
-        await waitTick()
-    } while (!CimField2.get(cim))
-    // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim) != 5}` as any)
-
-    let past: number
-    let current: number = CimField1.get(cim) as number
-    do {
-        if (token?.isCancelled()) {
-            return BlockBreak
+        if (!(ev.sound.startsWith("minecraft:block.") && ev.sound.endsWith("break"))) {
+            return false
         }
-
-        past = current
-        current = CimField1.get(cim) as number
-        await waitTick()
-        // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim)} != 5` as any)
-    } while (CimField2.get(cim) && CimField1_5.get(cim) != 5)
-    // await waitTick()
-//    CimField1_5.set(cim, 0)
+        const pos = ev.position
+        const ppos = Player.getPlayer().getPos()
+        const dx = pos.getX() - ppos.getX()
+        const dy = pos.getY() - ppos.getY()
+        const dz = pos.getZ() - ppos.getZ()
+        const d = Math.sqrt(dx**2 + dy**2 + dz**2)
+        return d < 5
+    })
     return BlockBreak
 }
+
+// export async function blockBreakPromise(token?: CancellationToken): Promise<typeof BlockBreak> {
+//     do {
+//         KeyBind.keyBind("key.attack", true)
+//         await waitTick()
+//     } while (!CimField2.get(cim))
+//     // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim) != 5}` as any)
+
+//     let past: number
+//     let current: number = CimField1.get(cim) as number
+//     do {
+//         if (token?.isCancelled()) {
+//             return BlockBreak
+//         }
+
+//         past = current
+//         current = CimField1.get(cim) as number
+//         await waitTick()
+//         // Chat.log(`${CimField2.get(cim)} && ${CimField1_5.get(cim)} != 5` as any)
+//     } while (CimField2.get(cim) && CimField1_5.get(cim) != 5)
+//     // await waitTick()
+// //    CimField1_5.set(cim, 0)
+//     return BlockBreak
+// }
 
 export function pos(): _javatypes.xyz.wagyourtail.jsmacros.client.api.sharedclasses.PositionCommon$Pos3D {
     return Player.getPlayer().getPos()
